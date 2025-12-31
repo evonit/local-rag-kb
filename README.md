@@ -66,6 +66,15 @@ Exploratory attempts that were later discarded:
   → Increased processing time with limited benefit
 - Advanced interpretation of tables, charts, and images using local LLMs  
   → Limited effectiveness and high cost
+- **Knowledge Graph (KG) integration**
+  - Tested automatic KG construction using LLM-based entity and relation extraction
+  - Evaluated KG-assisted retrieval and answer refinement on top of hybrid search
+  - Observed improvements in limited, well-scoped domains
+
+  → Ultimately discarded due to the following limitations:
+  - Local LLMs showed inconsistent quality when generating graphs in open-domain document sets
+  - Graph structure quality degraded rapidly as document scope expanded
+  - Maintaining a reliable KG without strict domain constraints proved impractical
 
 ---
 
