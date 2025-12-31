@@ -37,6 +37,9 @@ but is intended for **knowledge exploration within an organization or team**
 
 - This is a **research-driven prototype**, not a polished product
 - Only code that reached a **deployable state** is published
+- The provided Front-End UI is **minimal and intended only for testing and demonstration**
+  - It is not production-ready
+  - Commercial UI code developed for actual client delivery is **not included**
 - Not designed for:
   - personal desktop file browsing tools
   - large-scale, high-concurrency SaaS environments
