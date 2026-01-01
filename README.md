@@ -92,10 +92,7 @@ Exploratory attempts that were later discarded:
 
 Technical details are documented separately:
 
-- [Architecture Overview](docs/architecture.md)
-- [Retrieval Pipeline](docs/retrieval-pipeline.md)
-- [Search Refinement Strategy](docs/search-refinement.md)
-- [Roadmap](docs/roadmap.md)
+Technical Overview: [docs/INDEX.md](docs/INDEX.md)
 
 ---
 

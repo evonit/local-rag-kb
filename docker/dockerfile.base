@@ -1,0 +1,33 @@
+
+# 본 서비스 빌드 전에 기본 환경 설정 빌드 해줘야함
+# embedding model, KURE모델을 미리 다운로드하니, 혹시 교체할땐 바꿔야함.
+# 오류나면 --progress=plain 옵션으로 빌드
+# docker build --target myapp-base -t myapp-base:latest -f docker/dockerfile.base .
+
+
+ARG UID=1000
+ARG GID=1000
+
+FROM python:3.12 AS myapp-base
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG UID
+ARG GID
+RUN groupadd -r -g $GID app && useradd -m -r -u $UID -g app app
+
+WORKDIR /app
+RUN chown -R app:app /app
+USER app
+
+RUN pwd
+COPY requirements.txt .
+
+RUN python -m venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
+COPY --from=homedir --chown=app:app huggingface/hub/models--nlpai-lab--kure-v1 /home/app/.cache/huggingface/hub/models--nlpai-lab--kure-v1
+COPY --from=homedir --chown=app:app huggingface/hub/models--BAAI--bge-reranker-v2-m3 /home/app/.cache/huggingface/hub/models--BAAI--bge-reranker-v2-m3

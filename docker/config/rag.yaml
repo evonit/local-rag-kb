@@ -1,0 +1,32 @@
+rag:
+  subq_max: 4
+  max_retries: 1
+  per_doc_cap: 3
+  rerank_topn: 8
+embeddings:
+  tokenizer: skt/A.X-4.0-Light
+  bgem3: nlpai-lab/kure-v1
+vector_store:
+  qdrant_url: http://172.17.0.1:6333
+  collection: pdf_chunks
+retriever:
+  # 검색/융합/후처리
+  dense_k: 10
+  sparse_k: 10
+  final_k: 5
+  alpha: 0.65    # rrf에서 dense 가중
+  kappa: 60
+
+  # 질의 기반 soft 키워드 게이트
+  min_overlap: 0.15    # 겹침 임계
+  penalty: 0.12    # 겹침 미달 시 감점(재랭커 normalize 점수 기준)
+
+  # 자동 문서 락
+  auto_lock_lookahead: 50
+  auto_lock_share_thresh: 0.70
+  auto_lock_margin_thresh: 0.08
+
+  # 문서당 최대 청크 수(락 미발동 시)
+  per_doc_cap: 3
+
+  min_score: 0.5 # 최소 점수 컷

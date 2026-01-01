@@ -1,0 +1,30 @@
+
+# dockerfile.base 를 미리 실행해 두어야함
+# docker build --cache-from=myapp-base:latest --no-cache -t myapp:latest -f docker/dockerfile .
+
+
+FROM python:3.12-slim
+
+ARG UID=1000
+ARG GID=1000
+# 중복생성 방지 || true
+RUN groupadd -r -g $GID app 2>/dev/null || true && \
+    useradd -m -r -u $UID -g app app 2>/dev/null || true
+
+# 빌드 결과 및 가상환경 복사
+COPY --from=myapp-base --chown=app:app /app /app
+COPY --from=myapp-base --chown=app:app /home/app/.cache/huggingface /home/app/.cache/huggingface
+
+USER app
+WORKDIR /app
+
+COPY --chown=app:app . .target
+
+RUN python -m compileall -b -f .target && \
+    find .target -name '*.py' -delete && \
+    mv .target/* .target/.* /app 2>/dev/null || true && \
+    rm -rf .target
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+CMD ["env", "PYTHONUNBUFFERED=1", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--access-log"]

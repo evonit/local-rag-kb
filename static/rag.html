@@ -1,0 +1,193 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>RAG Streaming Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; }
+    #log { white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; height: 300px; overflow: auto; }
+    #answer { white-space: pre-wrap; border: 1px solid #333; padding: 1rem; }
+    .refs a { display:block; }
+  </style>
+</head>
+<body>
+  <h1>RAG Streaming</h1>
+  <input id="q" placeholder="질문을 입력하세요" style="width:70%"/>
+  <button id="run">Run</button>
+  <button id="stop">Stop</button>
+  <button id="reconnect">Reconnect</button>
+
+  <div style="display: flex; align-items: center; gap: 1rem;">
+    <h2 style="margin: 0;">진행 로그</h2>
+    <label for="model" style="margin-right: 0.5em;">Model:</label>
+    <select id="model">
+      <option value="default">use default</option>
+      <option value="sktax40l_q5_k_m">skt/a.x 4.0 light</option>
+      <option value="gemma3:27b">gemma3:27b</option>
+    </select>
+    <div id="temperature_box" style="display: none; align-items: center; gap: 0.5em;">
+      <label for="temperature">temperature (0.0 - 1.0, optional):</label>
+      <input id="temperature" type="number" min="0" max="1" step="0.1" style="width: 60px;">
+    </div>
+  </div>
+  <div id="log"></div>
+
+  <h2>실시간 답변</h2>
+  <div id="answer"></div>
+
+  <h2>참조</h2>
+  <div id="refs" class="refs"></div>
+
+<script>
+  let ws;
+  let currentStreamId = null;
+  const logEl = document.getElementById('log');
+  const answerEl = document.getElementById('answer');
+  const refsEl = document.getElementById('refs');
+
+  function appendLog(line){
+    logEl.textContent += line + "\n";
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  function modifyUrl(newScheme, newFilename) {
+    // 현재 URL 가져오기
+    const currentUrl = window.location.href;
+    // URL 객체 생성
+    const url = new URL(currentUrl);
+
+    // 스킴(프로토콜) 변경 (콜론(:)이 없다면 추가)
+    if (!newScheme.endsWith(':')) {
+      newScheme += ':';
+    }
+    url.protocol = newScheme;
+
+    // 경로(pathname)에서 파일명 부분만 교체
+    const pathSegments = url.pathname.split('/');
+    pathSegments[pathSegments.length - 1] = newFilename;
+    url.pathname = pathSegments.join('/');
+
+    // 수정된 전체 URL 반환
+    console.log(`Modified URL: ${url.toString()}`);
+    return url.toString();
+  }
+
+  function uuidv4() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  function startWS(){
+
+    ws = new WebSocket(modifyUrl('ws:', '../ws'));
+    ws.onopen = () => appendLog("[ws] connected");
+    ws.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      const { type, node, stream_id } = msg;
+      if (!currentStreamId) currentStreamId = stream_id;
+
+      switch(type){
+        case 'event':
+          appendLog(`[${node}] event: ${msg.event}`);
+          break;
+        case 'json':
+          appendLog(`[${node}] json: ${JSON.stringify(msg.payload).slice(0,400)}...`);
+          if(node === 'retrieve' && msg.payload?.hits){
+            // 검색 히트 등은 필요 시 화면의 사이드패널에 표시/갱신
+          }
+          if((node === 'synthesize')
+                  && msg.payload){
+            console.log(msg.payload);
+            const { final_answer, references } = msg.payload;
+            answerEl.textContent = final_answer || '';
+            refsEl.innerHTML = '';
+            if (Array.isArray(references)) {
+              references.forEach(r => {
+                const a = document.createElement('a');
+                a.href = r.url || '#';
+                a.target = '_blank';
+                a.textContent = `[${r.index}] ${r.source_file_name} p.${r.page ?? ''}`;
+                refsEl.appendChild(a);
+              });
+            }
+          }
+          break;
+        case 'token':
+          if(node === 'generate'){
+            answerEl.textContent += msg.text;
+          }
+          break;
+        case 'done':
+          appendLog(`[${node}] done`);
+          break;
+        default:
+          appendLog(`[?] ${ev.data}`);
+      }
+    };
+    ws.onclose = () => appendLog('[ws] closed');
+  }
+
+  startWS();
+
+  // Show/hide float input based on model selection
+  document.getElementById('model').onchange = function() {
+    document.getElementById('temperature_box').style.display =
+      this.value === 'default' ? 'none' : 'flex';
+  };
+
+  // Add this after your other button handlers
+  document.getElementById('reconnect').onclick = () => {
+    if (ws && ws.readyState === 1) {
+      ws.close();
+    }
+    setTimeout(() => {
+      startWS();
+    }, 100); // slight delay to ensure socket closes
+  };
+
+  document.getElementById('run').onclick = () => {
+    const query = document.getElementById('q').value.trim();
+    if(!query){ alert('질문을 입력하세요'); return; }
+    answerEl.textContent = '';
+    refsEl.innerHTML = '';
+    let currentStreamId;
+    try {
+      currentStreamId = crypto.randomUUID();
+    } catch (e) {
+      currentStreamId = uuidv4();
+    }
+
+    const model = document.getElementById('model').value;
+    console.log(model)
+    let options = undefined;
+
+    if (model !== 'default') {
+      const floatVal = parseFloat(document.getElementById('temperature').value);
+      if (isNaN(floatVal) || floatVal < 0 || floatVal > 1) {
+        alert('Float value (' + floatVal + ') must be between 0 and 1');
+        return;
+      }
+      options = { model: model, temperature: floatVal };
+    }
+
+    let payload = {
+      type: 'query.start',
+      stream_id: currentStreamId,
+      query
+    };
+    if (options) {
+      payload.options = options;
+    }
+    console.log(payload)
+    ws.send(JSON.stringify(payload));
+  };
+
+  document.getElementById('stop').onclick = () => {
+    if(!ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify({ type:'control', action:'pause', stream_id: currentStreamId }));
+  };
+</script>
+</body>
+</html>

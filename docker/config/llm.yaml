@@ -1,0 +1,70 @@
+llm:
+  tiers:
+    small:
+#      type: ollama
+#      model: qwen3-30b-a3b-q5-k-m # sktax40l_q5_k_m
+#      temperature: 0.0 # 기본값이니 손대지 않기. policy에서 bind하며 조정함
+#      base_url: http://172.17.0.1:11434
+#      type: openai
+#      model: ISTA-DASLab/gemma-3-27b-it-GPTQ-4b-128g
+#      temperature: 0.0
+#      base_url: http://172.17.0.1:8002/v1
+#      api_key: _EMPTY_
+      type: ollama
+      model: gemma-3-27b-it-q5_k_m # sktax40l_q5_k_m
+      temperature: 0.0 # 기본값이니 손대지 않기. policy에서 bind하며 조정함
+      base_url: http://172.17.0.1:11434
+    large:
+#      type: ollama
+#      model: qwen3-30b-a3b-q5-k-m # sktax40l_q5_k_m
+#      temperature: 0.0 # 기본값이니 손대지 않기. policy에서 bind하며 조정함
+#      base_url: http://172.17.0.1:11434
+#      type: openai
+#      model: ISTA-DASLab/gemma-3-27b-it-GPTQ-4b-128g
+#      temperature: 0.0
+#      base_url: http://172.17.0.1:8002/v1
+#      api_key: _EMPTY_
+      type: ollama
+      model: gemma-3-27b-it-q5_k_m # sktax40l_q5_k_m
+      temperature: 0.0 # 기본값이니 손대지 않기. policy에서 bind하며 조정함
+      base_url: http://172.17.0.1:11434
+
+policy:
+  # 역할별 기본 티어
+  default_tier_by_role:
+    clarify: small
+    planner: small
+    query_expand: small
+    fact_summary: small
+    sufficiency: small
+    synthesize: large
+
+  # 복잡한 포맷/지시 단계는 항상 large
+  force_large_roles: ["synthesize"]
+
+  # 생성 파라미터 프리셋
+  generation_presets:
+    deterministic: {temperature: 0.0, top_p: .1}
+    focused:       {temperature: 0.2, top_p: 0.95}
+    balanced:      {temperature: 0.3, top_p: 0.95}
+    exploratory:   {temperature: 0.7, top_p: 0.9}
+
+  # 역할별 프리셋 매핑
+  role_generation:
+    clarify: deterministic
+    planner: deterministic
+    query_expand: focused
+    fact_summary: focused
+    sufficiency: deterministic
+    synthesize: balanced
+
+  # 오토스케일/가드
+  autoscale:
+    enabled: true
+    retry_limit_per_step: 1
+    max_large_ratio: 0.15
+    triggers:
+      json_fail: 1
+      short_summary_min_chars: 220
+      token_threshold: 2000
+      repeated_insufficient: 2
